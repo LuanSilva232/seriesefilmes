@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Séries e filmes</title>
+    <style>
+        body {
+            background-color:  rgba(36, 36, 36, 0.961);;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            margin: 20px;
+            position: relative;
+            height: 100vh; /* Mantém o chat visível mesmo quando há rolagem */
+        }
+
+        h1 {
+            min-width: none; max-width: 100%;
+            color: #fff;
+            margin-right: auto;
+            margin-top: -10px;
+           
+        }
+
+        video {
+            margin-left: 50px;
+            min-width: 20%; max-width: 70%;
+            margin-right: 70px;
+            border-radius: 10px;
+        }
+
+        #chat-container {
+            flex: 1; /* Ocupa o restante do espaço disponível */
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            max-width: 300px;
+            width: 100%; /* Defina a largura máxima para o tamanho desejado */
+            background-color: #a5a5a5;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-messages {
+            border-radius: 10px;
+            background-color: rgba(147, 146, 146, 0.961);;;
+            max-height: 100%; /* Ajusta a altura máxima para permitir rolagem quando necessário */
+            height: 200px; /* Altura fixa do chat ao vivo */
+            overflow-y: auto;
+            border: 1px solid hsl(0, 0%, 80%);
+            padding: 10px;
+            margin-bottom: 10px;
+            word-wrap: break-word; /* Permite que as palavras longas se quebrem e pulem para a linha seguinte */
+        }
+
+        #chat-input {
+            border-radius: 10px;
+            width: calc(100% - 10px); /* Ajusta a largura do input para levar em consideração o padding */
+            padding: 6px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+
+        .delete-button {
+            cursor: pointer;
+            color: red;
+        }
+
+        #settings-button,
+        #delete-button {
+            cursor: pointer;
+            margin-bottom: 10px;
+            color: blue;
+            display: block;
+        }
+
+        .settings-popup {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            display: none;
+        }
+
+        button {
+            min-width: none; max-width: 100%;
+            padding: 5px;
+            cursor: pointer;
+            height: -10px;
+            margin-right: 30px;
+            margin-left: 30px;
+            background-color: rgb(49, 110, 148);
+            color: #fff;
+            border-radius: 10px;
+            border-bottom: #2770a0;
+        }
+        
+        /* Estilo adicional para quebrar linha nas mensagens */
+        .chat-message strong {
+            min-width: none; max-width: 100%;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .chat-message span {
+            min-width: none; max-width: 100%;
+            display: block;
+        }
+        
+        /* Botões personalizados */
+        .custon-buttongreen {
+            margin-top: 90px;
+            min-width: none; max-width: 100%;
+            position: absolute;
+            right: 100px; /* Posicionei no lado esquerdo */
+            background-color: #4CAF50; /* Cor de fundo verde */
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .custon-buttonred {
+            margin-top: 90px;
+            min-width: none; max-width: 100%;
+            position: absolute;
+            right: -10px; /* Posicionei no lado esquerdo */
+            background-color: #FF6347; /* Cor de fundo vermelho */
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Séries e filmes</h1>
+
+    <div id="chat-container">
+        <div id="settings-button" onclick="toggleSettings()">Configurações</div>
+        <div id="delete-button" onclick="toggleDelete()">Deletar</div>
+        <div class="settings-popup" id="settings-popup">
+            <label>
+                <input type="checkbox" id="delete-permission" onchange="toggleDeletePermission()"> Permitir deletar mensagens
+            </label>
+            <label>
+                Seu Nome: <input type="text" id="user-name-input" placeholder="Digite seu nome" />
+            </label>
+        </div>
+        <div id="chat-messages"></div>
+        <input type="text" id="chat-input" placeholder="Digite sua mensagem..." />
+    </div>
+
+    <video id="screen-share-video" autoplay></video>
+
+    <button class="custon-buttongreen" onclick="startScreenShare()">Compartilhar Tela</button>
+    <button class="custon-buttonred" onclick="toggleFullScreen()">Tela Cheia</button>
+
+    <script>
+        let isScreenSharing = false;
+        let screenStream;
+        let videoElement;
+        let canDeleteMessages = false;
+
+        const userNameInput = document.getElementById('user-name-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const settingsButton = document.getElementById('settings-button');
+        const deleteButton = document.getElementById('delete-button');
+        const settingsPopup = document.getElementById('settings-popup');
+        const deletePermissionCheckbox = document.getElementById('delete-permission');
+        // Carregamos o nome salvo ao iniciar a página
+        const savedUserName = localStorage.getItem('userName');
+        if (savedUserName) {
+            userNameInput.value = savedUserName;
+        }
+        
+       
+        
+
+        chatInput.addEventListener('keyup', function (event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        const sendMessageButton = document.createElement('button');
+        sendMessageButton.innerText = 'Enviar';
+        sendMessageButton.addEventListener('click', sendMessage);
+        chatInput.parentNode.appendChild(sendMessageButton);
+
+        function sendMessage() {
+            const message = chatInput.value;
+            const senderName = userNameInput.value || 'Você'; // Se o nome não for especificado, usa 'Você'
+            if (message.trim() !== '') {
+                addMessageToChat(senderName, message);
+                chatInput.value = '';
+                saveMessages();
+            }
+        }
+
+        function addMessageToChat(sender, message) {
+            const messageElement = document.createElement('div');
+            const deleteButtonHTML = canDeleteMessages ? `<span class="delete-button" onclick="deleteMessage(this)">❌</span>` : '';
+            messageElement.className = 'chat-message';
+            messageElement.innerHTML = `<strong>${sender}:</strong> <span>${message}</span> ${deleteButtonHTML}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function deleteMessage(deleteButton) {
+            if (canDeleteMessages) {
+                const messageElement = deleteButton.parentNode;
+                messageElement.parentNode.removeChild(messageElement);
+                saveMessages();
+            }
+        }
+
+        function toggleDelete() {
+            if (canDeleteMessages) {
+                chatMessages.innerHTML = '';
+                saveMessages();
+            }
+        }
+
+        function saveMessages() {
+            localStorage.setItem('chatMessages', chatMessages.innerHTML);
+        }
+
+        function loadMessages() {
+            const savedMessages = localStorage.getItem('chatMessages');
+            if (savedMessages) {
+                chatMessages.innerHTML = savedMessages;
+            }
+        }
+
+        async function startScreenShare() {
+    if (isScreenSharing) {
+        alert('A tela já está sendo compartilhada por outra pessoa.');
+        return;
+    }
+
+    try {
+        const mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        videoElement = document.createElement('video');
+        videoElement.srcObject = mediaStream;
+        videoElement.autoplay = true;
+        document.body.appendChild(videoElement);
+        isScreenSharing = true;
+    } catch (error) {
+        console.error('Erro ao compartilhar a tela:', error);
+    }
+}
+
+
+        function toggleFullScreen() {
+            if (!videoElement) {
+                alert('Nada para colocar em tela cheia. Compartilhe a tela primeiro.');
+                return;
+            }
+
+            if (document.fullscreenElement || document.webkitFullscreenElement ||
+                document.mozFullScreenElement || document.msFullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            } else {
+                if (videoElement.requestFullscreen) {
+                    videoElement.requestFullscreen();
+                } else if (videoElement.mozRequestFullScreen) {
+                    videoElement.mozRequestFullScreen();
+                } else if (videoElement.webkitRequestFullscreen) {
+                    videoElement.webkitRequestFullscreen();
+                } else if (videoElement.msRequestFullscreen) {
+                    videoElement.msRequestFullscreen();
+                }
+            }
+        }
+
+        // Adicionamos uma função para mostrar ou esconder os botões de configurações
+        function toggleSettings() {
+            settingsPopup.style.display = settingsPopup.style.display === 'block' ? 'none' : 'block';
+            settingsButton.style.display = settingsPopup.style.display === 'block' ? 'none' : 'block';
+            deleteButton.style.display = settingsPopup.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Adicionamos uma função para ativar ou desativar a permissão de deletar mensagens
+        function toggleDeletePermission() {
+            canDeleteMessages = deletePermissionCheckbox.checked;
+            deleteButton.style.color = canDeleteMessages ? 'red' : 'gray';
+        }
+
+        // Adicionamos um evento de clique no documento para fechar a janela de configurações
+        document.addEventListener('click', function(event) {
+            const isClickInsideSettings = settingsPopup.contains(event.target) || settingsButton.contains(event.target);
+            if (!isClickInsideSettings) {
+                settingsPopup.style.display = 'none';
+                settingsButton.style.display = 'block';
+                deleteButton.style.display = 'block';
+            }
+        });
+
+        // Carregamos as mensagens salvas ao iniciar a página
+        loadMessages();
+    </script>
+</body>
+</html>
